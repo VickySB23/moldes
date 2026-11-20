@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moldes · ropa y peluches</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+  <link rel="stylesheet" href="estilo.css">
+  <script src="https://cdn.jsdelivr.net/pyodide/v314.0.8/full/pyodide.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>✂️ Moldes</h1>
+    <p>Moldes de costura para ropa (con tus medidas) y peluches (desde un modelo 3D). Todo corre en tu navegador con Python.</p>
+  </header>
+
+  <div id="estado" class="estado">Cargando Python… la primera vez puede tardar unos segundos.</div>
+
+  <nav class="pestanas">
+    <button class="pestana activa" data-panel="panel-ropa">👕 Ropa</button>
+    <button class="pestana" data-panel="panel-peluche">🐸 Peluche</button>
+  </nav>
+
+  <main>
+    <section id="panel-ropa" class="panel activo">
+      <label>Prenda
+        <select id="prenda"></select>
+      </label>
+      <div id="medidas" class="grilla"></div>
+      <div class="grilla">
+        <label>Margen de costura (cm)
+          <input id="ropa-margen" type="number" step="0.1" min="0" value="1">
+        </label>
+        <label>Hoja
+          <select id="ropa-hoja"><option>A4</option><option>Carta</option><option>A3</option></select>
+        </label>
+      </div>
+      <button id="btn-ropa" class="principal" disabled>Generar molde</button>
+    </section>
+
+    <section id="panel-peluche" class="panel">
+      <label>Modelo 3D (.obj)
+        <input id="obj" type="file" accept=".obj">
+      </label>
+      <button id="btn-ejemplo" class="secundario">Usar la rana de ejemplo</button>
+      <p id="obj-nombre" class="nota"></p>
+      <div class="grilla">
+        <label>Altura final (cm)
+          <input id="altura" type="number" step="1" min="5" value="30">
+        </label>
+        <label>Eje vertical del modelo
+          <select id="eje"><option value="y">Y (Blender con "Y arriba")</option><option value="z">Z (Blender por defecto)</option><option value="x">X</option></select>
+        </label>
+        <label>Cómo separar las piezas
+          <select id="modo">
+            <option value="auto">Automático</option>
+            <option value="grupos">Por grupos/objetos (g, o)</option>
+            <option value="materiales">Por materiales</option>
+            <option value="uv">Por islas UV (costuras marcadas)</option>
+            <option value="partes">Por partes sueltas</option>
+          </select>
+        </label>
+        <label>Margen de costura (cm)
+          <input id="pel-margen" type="number" step="0.1" min="0" value="0.6">
+        </label>
+        <label>Hoja
+          <select id="pel-hoja"><option>A4</option><option>Carta</option><option>A3</option></select>
+        </label>
+      </div>
+      <button id="btn-peluche" class="principal" disabled>Generar molde</button>
+      <details class="ayuda">
+        <summary>¿Cómo preparo mi modelo en Blender?</summary>
+        <ol>
+          <li>Modelá el peluche con formas suaves (sin detalles finos: eso va bordado).</li>
+          <li><b>Opción A:</b> separá cada pieza en un objeto (Edit Mode → seleccionar → <i>P → Selection</i>). Exportá con <i>File → Export → Wavefront (.obj)</i> marcando <i>Object Groups</i>.</li>
+          <li><b>Opción B:</b> marcá las costuras (<i>Edge → Mark Seam</i>), hacé <i>UV → Unwrap</i> y exportá con UV. Elegí "Por islas UV".</li>
+          <li>Cada pieza tiene que poder abrirse plana: si es una esfera o un tubo, agregale costuras o pinzas. El programa te avisa cuánto se deforma cada pieza.</li>
+        </ol>
+      </details>
+    </section>
+
+    <section id="resultado" class="resultado oculto">
+      <h2>Resultado</h2>
+      <ul id="informe" class="informe"></ul>
+      <div id="vista3d" class="vista3d oculto"></div>
+      <div class="barra">
+        <a id="dl-pdf" class="boton" download="molde.pdf">⬇️ PDF para imprimir</a>
+        <a id="dl-svg" class="boton secundario" download="molde.svg">SVG tamaño real</a>
+        <a id="dl-svg2" class="boton secundario" download="molde_proyector.svg">SVG sin color (proyector/plotter)</a>
+      </div>
+      <label class="zoom">Zoom <input id="zoom" type="range" min="1" max="8" step="0.5" value="1"></label>
+      <div id="vista2d" class="vista2d"></div>
+    </section>
+  </main>
+
+  <footer>
+    Hecho con Python (Pyodide), shapely, numpy y scipy. Código en este mismo repositorio.
+  </footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
