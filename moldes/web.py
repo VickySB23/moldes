@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import json
 
-from . import peluche, ropa
+from . import peluche, personal, ropa
 from .salida import acomodar, generar_pdf, generar_svg
 
 
@@ -57,3 +57,23 @@ def generar_peluche(texto_obj: str, opciones_json: str) -> str:
     informe = informe + [f"Margen de costura incluido: {margen:g} cm (línea punteada = costura)."]
     return _resultado(piezas, informe, o.get("titulo") or "Peluche", margen, o.get("hoja", "A4"),
                       {"vista3d": vista})
+
+
+# ------------------------------------------------------------ prendas personalizadas
+
+def esquema_personal() -> str:
+    return json.dumps(personal.esquema())
+
+
+def evaluar_personal(prenda_json: str, margen: float | None = None) -> str:
+    return json.dumps(personal.evaluar(prenda_json, margen=margen))
+
+
+def generar_personal(prenda_json: str, opciones_json: str) -> str:
+    o = json.loads(opciones_json)
+    prenda = personal.cargar(prenda_json)
+    piezas, informe = personal.generar(prenda, o.get("medidas") or None)
+    margen = float(o.get("margen", prenda.get("margen", 1.0)))
+    informe = informe + [f"Margen de costura general: {margen:g} cm (línea punteada = costura)."]
+    return _resultado(piezas, informe, prenda.get("nombre") or "Prenda personalizada", margen,
+                      o.get("hoja", "A4"))

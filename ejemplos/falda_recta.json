@@ -1,0 +1,90 @@
+{
+  "formato": "moldes-prenda",
+  "version": 1,
+  "nombre": "Falda recta con pinzas",
+  "descripcion": "Base de falda recta: delantero y espalda al doblez, con pinzas, costado curvo y pretina.",
+  "margen": 1,
+  "medidas": [
+    {"id": "cintura", "nombre": "Contorno de cintura", "valor": 70},
+    {"id": "cadera", "nombre": "Contorno de cadera", "valor": 96},
+    {"id": "alto_cadera", "nombre": "Alto de cadera (cintura a cadera)", "valor": 20},
+    {"id": "largo_falda", "nombre": "Largo de falda", "valor": 60},
+    {"id": "holgura", "nombre": "Holgura de cadera", "valor": 4},
+    {"id": "pretina", "nombre": "Alto de pretina terminada", "valor": 4}
+  ],
+  "variables": [
+    {"id": "Wq", "formula": "(cadera + holgura) / 4", "nota": "cuarto de cadera con holgura"},
+    {"id": "dif", "formula": "Wq - (cintura + 1) / 4", "nota": "lo que hay que quitar en cada cuarto de cintura"},
+    {"id": "lado", "formula": "dif / 2", "nota": "se quita en el costado"},
+    {"id": "pinza_e", "formula": "dif / 2", "nota": "boca de la pinza de espalda"},
+    {"id": "pinza_d", "formula": "dif / 2", "nota": "boca de la pinza delantera"}
+  ],
+  "puntos": [
+    {"id": "A", "tipo": "xy", "x": "0", "y": "0"},
+    {"id": "B", "tipo": "desde", "base": "A", "dx": "0", "dy": "largo_falda"},
+    {"id": "C", "tipo": "desde", "base": "A", "dx": "0", "dy": "alto_cadera"},
+    {"id": "E", "tipo": "desde", "base": "A", "dx": "2 * Wq", "dy": "0"},
+    {"id": "F", "tipo": "desde", "base": "B", "dx": "2 * Wq", "dy": "0"},
+    {"id": "S", "tipo": "desde", "base": "C", "dx": "Wq", "dy": "0"},
+    {"id": "H", "tipo": "desde", "base": "B", "dx": "Wq", "dy": "0"},
+    {"id": "Le", "tipo": "desde", "base": "A", "dx": "Wq - lado", "dy": "-1"},
+    {"id": "Ld", "tipo": "desde", "base": "A", "dx": "Wq + lado", "dy": "-1"},
+    {"id": "K1", "tipo": "desde", "base": "Le", "dx": "lado * 0.7", "dy": "alto_cadera * 0.35"},
+    {"id": "K2", "tipo": "desde", "base": "S", "dx": "0", "dy": "-alto_cadera * 0.45"},
+    {"id": "K3", "tipo": "desde", "base": "Ld", "dx": "-lado * 0.7", "dy": "alto_cadera * 0.35"},
+    {"id": "Pm", "tipo": "sobre_linea", "a": "A", "b": "Le", "largo": "dist(A, Le) / 2"},
+    {"id": "P1", "tipo": "sobre_linea", "a": "A", "b": "Le", "largo": "dist(A, Le) / 2 - pinza_e / 2"},
+    {"id": "P2", "tipo": "sobre_linea", "a": "A", "b": "Le", "largo": "dist(A, Le) / 2 + pinza_e / 2"},
+    {"id": "Pv", "tipo": "desde", "base": "Pm", "dx": "0", "dy": "13"},
+    {"id": "Qm", "tipo": "sobre_linea", "a": "E", "b": "Ld", "largo": "dist(E, Ld) / 2"},
+    {"id": "Q1", "tipo": "sobre_linea", "a": "E", "b": "Ld", "largo": "dist(E, Ld) / 2 - pinza_d / 2"},
+    {"id": "Q2", "tipo": "sobre_linea", "a": "E", "b": "Ld", "largo": "dist(E, Ld) / 2 + pinza_d / 2"},
+    {"id": "Qv", "tipo": "desde", "base": "Qm", "dx": "0", "dy": "9"},
+    {"id": "Mc", "tipo": "medio", "a": "S", "b": "H"},
+    {"id": "R0", "tipo": "desde", "base": "B", "dx": "0", "dy": "8"},
+    {"id": "R1", "tipo": "desde", "base": "R0", "dx": "cintura + 1 + 3", "dy": "0"},
+    {"id": "R2", "tipo": "desde", "base": "R1", "dx": "0", "dy": "2 * pretina"},
+    {"id": "R3", "tipo": "desde", "base": "R0", "dx": "0", "dy": "2 * pretina"},
+    {"id": "Rm0", "tipo": "medio", "a": "R0", "b": "R3"},
+    {"id": "Rm1", "tipo": "medio", "a": "R1", "b": "R2"}
+  ],
+  "curvas": [
+    {"id": "costado_e", "tipo": "bezier", "puntos": ["Le", "K1", "K2", "S"]},
+    {"id": "costado_d", "tipo": "bezier", "puntos": ["Ld", "K3", "K2", "S"]}
+  ],
+  "piezas": [
+    {
+      "nombre": "Espalda",
+      "cortar": "Cortar 1 al doblez",
+      "color": "#c4def4",
+      "contorno": ["A", "Le", "costado_e", "H", "B"],
+      "doblez": ["B", "A"],
+      "marcas": [{"punto": "Mc", "texto": "A"}],
+      "lineas": [{"puntos": ["P1", "Pv", "P2"], "estilo": "pinza"}],
+      "margenes": [{"desde": "H", "hasta": "B", "margen": "3"}]
+    },
+    {
+      "nombre": "Delantero",
+      "cortar": "Cortar 1 al doblez",
+      "color": "#cfe8b0",
+      "contorno": ["E", "Ld", "costado_d", "H", "F"],
+      "doblez": ["F", "E"],
+      "marcas": [{"punto": "Mc", "texto": "A"}],
+      "lineas": [{"puntos": ["Q1", "Qv", "Q2"], "estilo": "pinza"}],
+      "margenes": [{"desde": "H", "hasta": "F", "margen": "3"}]
+    },
+    {
+      "nombre": "Pretina",
+      "cortar": "Cortar 1 (+ entretela)",
+      "color": "#f6c9d6",
+      "contorno": ["R0", "R1", "R2", "R3"],
+      "lineas": [{"puntos": ["Rm0", "Rm1"], "estilo": "punteada"}],
+      "notas": "doblar al medio · 3 cm de cruce"
+    }
+  ],
+  "controles": [
+    {"nombre": "Cintura de la falda, sin pinzas (cm)", "formula": "2 * (dist(A, Le) - pinza_e + dist(E, Ld) - pinza_d)", "min": "cintura", "max": "cintura + 2"},
+    {"nombre": "Diferencia de costados espalda − delantero (cm)", "formula": "largo(costado_e) - largo(costado_d)", "min": "-0.3", "max": "0.3"},
+    {"nombre": "Cadera de la falda (cm)", "formula": "4 * Wq", "min": "cadera", "max": "cadera + 8"}
+  ]
+}

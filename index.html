@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Moldes · ropa y peluches</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
-  <link rel="stylesheet" href="estilo.css">
+  <link rel="stylesheet" href="estilo.css?v=0.2.0">
   <script src="https://cdn.jsdelivr.net/pyodide/v314.0.8/full/pyodide.js"></script>
   <script type="importmap">
   {
@@ -27,6 +27,7 @@
   <nav class="pestanas">
     <button class="pestana activa" data-panel="panel-ropa">👕 Ropa</button>
     <button class="pestana" data-panel="panel-peluche">🐸 Peluche</button>
+    <button class="pestana" data-panel="panel-personal">✏️ Mi prenda</button>
   </nav>
 
   <main>
@@ -87,6 +88,60 @@
       </details>
     </section>
 
+    <section id="panel-personal" class="panel">
+      <div class="ed-barra">
+        <button type="button" id="ed-nueva" class="ed-btn">＋ Nueva</button>
+        <button type="button" id="ed-ejemplo" class="ed-btn">Ejemplo: falda recta</button>
+        <select id="ed-libreria" class="ed-btn" title="Prendas guardadas en este navegador"></select>
+        <button type="button" id="ed-borrar-guardada" class="ed-btn" title="Borrar de «Mis prendas»" disabled>🗑</button>
+        <button type="button" id="ed-guardar" class="ed-btn ed-fuerte">💾 Guardar</button>
+        <label class="ed-btn ed-archivo" title="Abrir un archivo .json de prenda">Importar<input type="file" id="ed-importar" accept=".json,application/json"></label>
+        <button type="button" id="ed-exportar" class="ed-btn" title="Bajar la prenda como archivo .json">Exportar</button>
+        <span class="ed-separador"></span>
+        <button type="button" id="ed-deshacer" class="ed-btn" title="Deshacer (Ctrl+Z)" disabled>↶</button>
+        <button type="button" id="ed-rehacer" class="ed-btn" title="Rehacer (Ctrl+Y)" disabled>↷</button>
+      </div>
+      <div class="ed-cuerpo">
+        <div id="ed-lado" class="ed-lado"></div>
+        <div class="ed-lienzo">
+          <div class="ed-ver">
+            <label><input type="checkbox" id="ed-ver-construccion"> construcción</label>
+            <label><input type="checkbox" id="ed-ver-nombres"> nombres</label>
+            <label><input type="checkbox" id="ed-ver-margen"> margen</label>
+            <label><input type="checkbox" id="ed-ver-rejilla"> cuadrícula</label>
+            <button type="button" id="ed-ajustar" class="ed-btn">⤢ Ajustar</button>
+          </div>
+          <svg id="ed-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="ed-pie"><span id="ed-estado"></span><span id="ed-coord"></span></div>
+        </div>
+      </div>
+      <datalist id="dl-puntos"></datalist>
+      <datalist id="dl-curvas"></datalist>
+      <div class="grilla">
+        <label>Margen de costura general (cm)
+          <input id="per-margen" type="number" step="0.1" min="0" value="1">
+        </label>
+        <label>Hoja
+          <select id="per-hoja"><option>A4</option><option>Carta</option><option>A3</option></select>
+        </label>
+      </div>
+      <button id="btn-personal" class="principal" disabled>Generar molde</button>
+      <details class="ayuda">
+        <summary>¿Cómo armo mi prenda? (guía y fórmulas)</summary>
+        <ol>
+          <li><b>Medidas:</b> creá las medidas que vas a pedir (por ejemplo <code>cintura</code>, <code>cadera</code>, <code>largo_falda</code>). Los nombres van sin espacios ni acentos.</li>
+          <li><b>Variables</b> (opcional): cuentas que usás varias veces, como <code>Wq = (cadera + holgura) / 4</code>.</li>
+          <li><b>Puntos:</b> trazá el molde como en papel. Empezá con un punto en (0, 0) y construí los demás con las herramientas: «desde otro punto» (→ x, ↓ y), «largo y ángulo», «sobre una línea», «punto medio», «cruce de dos líneas», «perpendicular», «a cierta distancia» (por ejemplo, el largo del hombro hasta tocar una línea) y «sobre una curva».</li>
+          <li><b>Curvas:</b> para escotes, sisas, tiros y costados. Bézier: inicio, control, control, fin. Suave: pasa por todos los puntos que le des.</li>
+          <li><b>Piezas:</b> en «contorno» escribí (o tocá en el dibujo) los puntos y curvas en orden alrededor de la pieza. Agregá doblez, hilo, piquetes con letras, pinzas (pata, vértice, pata) y márgenes especiales como el ruedo.</li>
+          <li><b>Controles:</b> verificá que las costuras que se unen midan lo mismo, por ejemplo <code>largo(costado_e) - largo(costado_d)</code>.</li>
+          <li>Probá cambiar las medidas: todo se recalcula. Cuando esté lista, <b>Guardar</b> la deja en «Mis prendas» y también aparece en la pestaña Ropa. <b>Exportar</b> baja un archivo .json para compartirla o usarla con <code>python -m moldes personal</code>.</li>
+        </ol>
+        <p><b>En las fórmulas podés usar:</b> <code>+ - * / ** ( )</code>, decimales con punto (<code>1.5</code>), medidas y variables, <code>A.x</code> y <code>A.y</code> (coordenadas de un punto), <code>dist(A, B)</code>, <code>ang(A, B)</code>, <code>largo(curva)</code>, <code>largo(A, B, C)</code>, <code>raiz()</code>, <code>sin() cos() tan()</code> (en grados), <code>asin() acos() atan() atan2()</code>, <code>min() max() abs()</code>, <code>redondear(x, 1)</code>, <code>si(cintura &gt; 80, 2, 1)</code> y <code>pi</code>.</p>
+        <p><b>Atajos:</b> rueda del mouse = zoom · arrastrar = mover el dibujo · con un campo activo, tocar un punto o curva lo escribe ahí · Ctrl+Z / Ctrl+Y = deshacer / rehacer (fuera de los campos) · al renombrar un punto se actualizan todas las fórmulas que lo usan.</p>
+      </details>
+    </section>
+
     <section id="resultado" class="resultado oculto">
       <h2>Resultado</h2>
       <ul id="informe" class="informe"></ul>
@@ -104,6 +159,6 @@
   <footer>
     Hecho con Python (Pyodide), shapely, numpy y scipy. Código en este mismo repositorio.
   </footer>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=0.2.0"></script>
 </body>
 </html>

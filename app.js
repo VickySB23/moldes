@@ -1,11 +1,12 @@
 // Interfaz de la página: carga el paquete Python "moldes" en Pyodide y lo usa.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { iniciarEditor, prendasGuardadas } from "./editor.js?v=0.2.0";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const ARCHIVOS_PY = [
   "__init__.py", "pieza.py", "dibujo.py", "pdf.py", "salida.py",
-  "ropa.py", "aplanar.py", "peluche.py", "web.py",
+  "ropa.py", "aplanar.py", "peluche.py", "personal.py", "web.py",
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -37,8 +38,9 @@ async function iniciar() {
     py.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
     api = py.pyimport("moldes.web");
     armarFormularioRopa();
-    $("btn-ropa").disabled = false;
-    $("btn-peluche").disabled = !textoObj;
+    await iniciarEditor(api, generarPersonal);
+    document.addEventListener("moldes:prendas-cambiaron", armarFormularioRopa);
+    actualizarBotones();
     estado("Listo ✔", "ok");
   } catch (err) {
     console.error(err);
@@ -53,6 +55,7 @@ document.querySelectorAll(".pestana").forEach((b) =>
     document.querySelectorAll(".panel").forEach((x) => x.classList.remove("activo"));
     b.classList.add("activa");
     $(b.dataset.panel).classList.add("activo");
+    document.body.classList.toggle("ancho", b.dataset.panel === "panel-personal");
   })
 );
 
@@ -68,13 +71,33 @@ function leer(clave) {
 function armarFormularioRopa() {
   PRENDAS = JSON.parse(api.prendas());
   const sel = $("prenda");
+  const antes = sel.value;
   sel.innerHTML = "";
+  const grupo = (titulo) => { const g = document.createElement("optgroup"); g.label = titulo; sel.appendChild(g); return g; };
+  const base = grupo("Prendas base");
   for (const [id, p] of Object.entries(PRENDAS)) {
     const o = document.createElement("option");
     o.value = id;
     o.textContent = p.nombre;
-    sel.appendChild(o);
+    base.appendChild(o);
   }
+  // prendas hechas en «Mi prenda» y guardadas en este navegador
+  const mias = Object.entries(prendasGuardadas());
+  if (mias.length) {
+    const g = grupo("Mis prendas");
+    for (const [k, p] of mias) {
+      const id = "mia:" + k;
+      PRENDAS[id] = {
+        nombre: p.nombre || k, margen: p.margen ?? 1, personal: p,
+        params: (p.medidas || []).map((m) => ({ id: m.id, etiqueta: m.nombre || m.id, valor: m.valor })),
+      };
+      const o = document.createElement("option");
+      o.value = id;
+      o.textContent = p.nombre || k;
+      g.appendChild(o);
+    }
+  }
+  if (antes && PRENDAS[antes]) sel.value = antes;
   sel.onchange = camposPrenda;
   camposPrenda();
 }
@@ -104,6 +127,12 @@ $("btn-ropa").addEventListener("click", () => {
   const medidas = {};
   for (const prm of PRENDAS[id].params) medidas[prm.id] = parseFloat($("m-" + prm.id).value);
   guardar("medidas:" + id, medidas);
+  if (PRENDAS[id].personal) {
+    ejecutar(() => api.generar_personal(JSON.stringify(PRENDAS[id].personal), JSON.stringify({
+      medidas, margen: parseFloat($("ropa-margen").value), hoja: $("ropa-hoja").value,
+    })), id.slice(4));
+    return;
+  }
   ejecutar(() =>
     api.generar_ropa(JSON.stringify({
       prenda: id, medidas,
@@ -144,24 +173,34 @@ $("btn-peluche").addEventListener("click", () => {
     })), nombreObj);
 });
 
+// ---------------------------------------------------------------- mi prenda
+function generarPersonal(prenda, margen, hoja) {
+  const nombre = (prenda.nombre || "prenda").trim().toLowerCase().replace(/\s+/g, "_");
+  ejecutar(() => api.generar_personal(JSON.stringify(prenda), JSON.stringify({ margen, hoja })), nombre);
+}
+
 // ---------------------------------------------------------------- común
+function actualizarBotones() {
+  $("btn-ropa").disabled = !api;
+  $("btn-peluche").disabled = !(api && textoObj);
+  $("btn-personal").disabled = !api;
+}
+
 async function ejecutar(fn, nombre) {
-  const botones = [$("btn-ropa"), $("btn-peluche")];
-  botones.forEach((b) => (b.disabled = true));
+  document.querySelectorAll("button.principal").forEach((b) => (b.disabled = true));
   estado("Generando…");
   await new Promise((r) => setTimeout(r, 30)); // deja que se pinte el mensaje
   try {
     const t0 = performance.now();
     const res = JSON.parse(fn());
     mostrar(res, nombre);
-    estado(`Listo ✔ ${res.piezas} piezas en ${((performance.now() - t0) / 1000).toFixed(1)} s`, "ok");
+    estado(`Listo ✔ ${res.piezas} ${res.piezas === 1 ? "pieza" : "piezas"} en ${((performance.now() - t0) / 1000).toFixed(1)} s`, "ok");
   } catch (err) {
     console.error(err);
     const msg = String(err.message || err).split("\n").filter(Boolean);
     estado("Error: " + msg[msg.length - 1], "error");
   } finally {
-    $("btn-ropa").disabled = !api;
-    $("btn-peluche").disabled = !(api && textoObj);
+    actualizarBotones();
   }
 }
 

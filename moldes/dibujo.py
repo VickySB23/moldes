@@ -57,6 +57,21 @@ def dibujar_pieza(lz, pz: Pieza, margen: float, color_relleno: bool = False,
         for anillo in _anillos(poly):
             lz.linea(anillo, cerrada=True, ancho=0.02, trazo=(0.25, 0.15), color=GRIS)
 
+    # líneas interiores (pinzas, dobleces, ubicación de bolsillos)
+    for pts, estilo in pz.lineas:
+        if len(pts) < 2:
+            continue
+        if estilo == "punteada":
+            lz.linea(pts, ancho=0.025, trazo=(0.4, 0.2), color=NEGRO)
+        elif estilo == "pinza":
+            lz.linea(pts, ancho=0.03, color=NEGRO)
+            # eje de la pinza: del medio de la boca al vértice (para doblarla bien)
+            if len(pts) == 3:
+                (ax, ay), v, (bx, by) = pts
+                lz.linea([((ax + bx) / 2, (ay + by) / 2), v], ancho=0.015, trazo=(0.2, 0.2), color=GRIS)
+        else:
+            lz.linea(pts, ancho=0.03, color=NEGRO)
+
     # doblez
     if pz.doblez:
         (x1, y1), (x2, y2) = pz.doblez
