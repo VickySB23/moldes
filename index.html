@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Moldes · ropa y peluches</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
-  <link rel="stylesheet" href="estilo.css?v=0.2.0">
+  <link rel="stylesheet" href="estilo.css?v=0.4.0">
   <script src="https://cdn.jsdelivr.net/pyodide/v314.0.8/full/pyodide.js"></script>
   <script type="importmap">
   {
@@ -48,42 +48,170 @@
     </section>
 
     <section id="panel-peluche" class="panel">
-      <label>Modelo 3D (.obj)
-        <input id="obj" type="file" accept=".obj">
-      </label>
-      <button id="btn-ejemplo" class="secundario">Usar la rana de ejemplo</button>
-      <p id="obj-nombre" class="nota"></p>
-      <div class="grilla">
-        <label>Altura final (cm)
-          <input id="altura" type="number" step="1" min="5" value="30">
-        </label>
-        <label>Eje vertical del modelo
-          <select id="eje"><option value="y">Y (Blender con "Y arriba")</option><option value="z">Z (Blender por defecto)</option><option value="x">X</option></select>
-        </label>
-        <label>Cómo separar las piezas
-          <select id="modo">
-            <option value="auto">Automático</option>
-            <option value="grupos">Por grupos/objetos (g, o)</option>
-            <option value="materiales">Por materiales</option>
-            <option value="uv">Por islas UV (costuras marcadas)</option>
-            <option value="partes">Por partes sueltas</option>
-          </select>
-        </label>
-        <label>Margen de costura (cm)
-          <input id="pel-margen" type="number" step="0.1" min="0" value="0.6">
-        </label>
-        <label>Hoja
-          <select id="pel-hoja"><option>A4</option><option>Carta</option><option>A3</option></select>
-        </label>
+      <nav class="tl-pasos">
+        <button type="button" data-paso="modelo">1 · Modelo</button>
+        <button type="button" data-paso="costuras">2 · Costuras y piezas</button>
+        <button type="button" data-paso="molde">3 · Molde</button>
+      </nav>
+      <div class="tl-cuerpo">
+        <div class="tl-lado">
+          <!-- paso 1 -->
+          <div id="tl-paso-modelo">
+            <div class="tl-fuentes">
+              <button type="button" data-fuente="formas">🧸 Formas</button>
+              <button type="button" data-fuente="maniqui">🧍 Maniquí</button>
+              <button type="button" data-fuente="archivo">📁 Archivo .obj</button>
+            </div>
+
+            <div id="tl-fuente-formas">
+              <p class="nota">Modelá con formas que se funden como plastilina. Elegí una forma y movela con las flechas en 3D
+                (<b>G</b> mover · <b>R</b> girar · <b>S</b> tamaño) o con los números.</p>
+              <div class="tl-fila">
+                <button type="button" id="tl-osito" class="ed-btn">Ejemplo: osito</button>
+                <button type="button" id="tl-vacio" class="ed-btn">Empezar de cero</button>
+              </div>
+              <div class="tl-fila tl-agregar">
+                <span>Agregar:</span>
+                <button type="button" class="ed-btn" data-nueva-forma="esfera">● Esfera</button>
+                <button type="button" class="ed-btn" data-nueva-forma="capsula">⬭ Cápsula</button>
+                <button type="button" class="ed-btn" data-nueva-forma="cilindro">▮ Cilindro</button>
+                <button type="button" class="ed-btn" data-nueva-forma="cono">▲ Cono</button>
+                <button type="button" class="ed-btn" data-nueva-forma="caja">■ Caja</button>
+                <button type="button" class="ed-btn" data-nueva-forma="toro">◯ Dona</button>
+              </div>
+              <div class="tl-fila">
+                <button type="button" class="ed-btn" data-gizmo="translate">✥ Mover</button>
+                <button type="button" class="ed-btn" data-gizmo="rotate">⟳ Girar</button>
+                <button type="button" class="ed-btn" data-gizmo="scale">⤡ Tamaño</button>
+              </div>
+              <div class="tl-fila">
+                <label><span>Nombre</span><input id="tl-formas-nombre"></label>
+                <label><span>Suavidad de uniones (cm)</span><input id="tl-suavidad" type="number" step="0.5" min="0"></label>
+                <label><span>Detalle</span><select id="tl-resolucion"><option value="baja">bajo (rápido)</option><option value="media">medio</option><option value="alta">alto</option></select></label>
+              </div>
+              <div id="tl-lista-formas" class="tl-lista-formas"></div>
+              <p id="tl-error" class="ed-msg"></p>
+            </div>
+
+            <div id="tl-fuente-maniqui" class="oculto">
+              <p class="nota">Un maniquí con tus medidas. Se mide como con un centímetro y se corrige hasta que busto, cintura y cadera coinciden.
+                Después dibujás las costuras de la prenda encima y se aplanan en moldes ajustados.</p>
+              <div class="grilla">
+                <label>Medidas de partida<select id="mq-talle"></select></label>
+                <label>Tipo<select id="mq-tipo"></select></label>
+                <label>Cuerpo<select id="mq-forma"></select></label>
+              </div>
+              <div id="mq-medidas" class="grilla mq-medidas"></div>
+              <div class="grilla">
+                <label>Holgura (cm de más en todo el contorno)<input id="mq-holgura" type="number" step="0.5" min="0"></label>
+                <label>Detalle<select id="mq-resolucion"><option value="baja">bajo (rápido)</option><option value="media">medio</option><option value="alta">alto</option></select></label>
+              </div>
+              <div class="tl-fila">
+                <button type="button" id="mq-armar" class="ed-btn ed-fuerte">🧍 Armar maniquí</button>
+                <button type="button" id="mq-corpino" class="ed-btn" title="Centro, costados, hombros, escote, sisas y cintura">✂️ Costuras de corpiño básico</button>
+              </div>
+              <p id="mq-informe" class="nota"></p>
+            </div>
+
+            <div id="tl-fuente-archivo" class="oculto">
+              <label>Modelo 3D (.obj)
+                <input id="obj" type="file" accept=".obj">
+              </label>
+              <button type="button" id="btn-ejemplo" class="secundario">Usar la rana de ejemplo</button>
+              <p id="obj-nombre" class="nota"></p>
+              <label>Eje vertical del modelo
+                <select id="eje"><option value="y">Y (Blender con "Y arriba")</option><option value="z">Z (Blender por defecto)</option><option value="x">X</option></select>
+              </label>
+              <p class="nota">Los grupos del archivo (g / o) se usan como costuras iniciales. En el paso 2 podés borrarlas o agregar otras.</p>
+            </div>
+            <button type="button" class="principal" data-ir="costuras">Siguiente: costuras →</button>
+          </div>
+
+          <!-- paso 2 -->
+          <div id="tl-paso-costuras" class="oculto">
+            <div class="tl-fila">
+              <label class="ed-check"><input type="checkbox" id="tl-simetria"> simetría izq/der</label>
+              <label class="ed-check"><input type="checkbox" id="tl-ver-estado"> colorear por estado</label>
+              <label class="ed-check"><input type="checkbox" id="tl-auto" checked> revisar solo</label>
+            </div>
+            <p id="tl-resumen" class="nota"></p>
+            <ul id="tl-piezas" class="tl-piezas"></ul>
+            <div class="tl-fila">
+              <button type="button" id="tl-revisar" class="ed-btn">🔍 Revisar piezas</button>
+              <button type="button" id="tl-borrar-todas" class="ed-btn">Borrar todas las costuras</button>
+            </div>
+            <p class="nota">Cada pieza tiene que poder abrirse plana: una esfera o un tubo necesitan costuras. Verde = bien, amarillo = se deforma, rojo = falta una costura.</p>
+            <button type="button" class="principal" data-ir="molde">Siguiente: molde →</button>
+          </div>
+
+          <!-- paso 3 -->
+          <div id="tl-paso-molde" class="oculto">
+            <p id="tl-molde-info" class="nota"></p>
+            <div class="grilla">
+              <label>Altura final (cm)
+                <input id="altura" type="number" step="1" min="5" value="30">
+              </label>
+              <label id="tl-eje-fila" class="oculto">Eje vertical
+                <span class="nota">se elige en el paso 1</span>
+              </label>
+              <label id="tl-modo-fila" class="oculto">Cómo separar las piezas
+                <select id="modo">
+                  <option value="auto">Automático</option>
+                  <option value="grupos">Por grupos/objetos (g, o)</option>
+                  <option value="materiales">Por materiales</option>
+                  <option value="uv">Por islas UV (costuras marcadas)</option>
+                  <option value="partes">Por partes sueltas</option>
+                </select>
+              </label>
+              <label>Margen de costura (cm)
+                <input id="pel-margen" type="number" step="0.1" min="0" value="0.6">
+              </label>
+              <label>Hoja
+                <select id="pel-hoja"><option>A4</option><option>Carta</option><option>A3</option></select>
+              </label>
+            </div>
+            <button id="btn-peluche" class="principal" disabled>Generar molde</button>
+          </div>
+
+          <div class="tl-fila tl-archivos">
+            <label class="ed-btn ed-archivo">Importar proyecto<input type="file" id="tl-importar" accept=".json,application/json"></label>
+            <button type="button" id="tl-exportar" class="ed-btn">Exportar proyecto</button>
+            <button type="button" id="tl-bajar-obj" class="ed-btn" title="El modelo con las piezas como grupos, para Blender u otro programa">Bajar .obj</button>
+          </div>
+        </div>
+
+        <div class="tl-vista">
+          <div class="tl-barra-vista">
+            <button type="button" class="ed-btn" data-vista="frente">Frente</button>
+            <button type="button" class="ed-btn" data-vista="lado">Lado</button>
+            <button type="button" class="ed-btn" data-vista="atras">Atrás</button>
+            <button type="button" class="ed-btn" data-vista="arriba">Arriba</button>
+            <button type="button" class="ed-btn" id="tl-ajustar" title="Encuadrar">⤢</button>
+            <span id="tl-info" class="tl-info"></span>
+          </div>
+          <div id="tl-herr" class="tl-herr oculto">
+            <button type="button" class="ed-btn" data-herramienta="trazar" title="T">✏️ Trazar</button>
+            <button type="button" class="ed-btn" data-herramienta="cuchillo" title="C">🔪 Cuchillo</button>
+            <button type="button" class="ed-btn" data-herramienta="borrar" title="B">🧽 Borrar</button>
+            <button type="button" class="ed-btn" data-herramienta="quitar" title="Q">🚫 Quitar pieza</button>
+            <span id="tl-ayuda" class="tl-ayuda"></span>
+          </div>
+          <div class="tl-lienzo">
+            <div id="tl-vista3d" class="tl-vista3d"></div>
+            <svg class="tl-capa"><line id="tl-linea" style="display:none" stroke="#c1121f" stroke-width="2" stroke-dasharray="6 4"/></svg>
+          </div>
+          <p class="nota tl-pie">Arrastrar = girar · rueda = zoom · clic derecho y arrastrar = mover la vista</p>
+        </div>
       </div>
-      <button id="btn-peluche" class="principal" disabled>Generar molde</button>
       <details class="ayuda">
-        <summary>¿Cómo preparo mi modelo en Blender?</summary>
+        <summary>¿Cómo funciona? (formas, maniquí, costuras)</summary>
         <ol>
-          <li>Modelá el peluche con formas suaves (sin detalles finos: eso va bordado).</li>
-          <li><b>Opción A:</b> separá cada pieza en un objeto (Edit Mode → seleccionar → <i>P → Selection</i>). Exportá con <i>File → Export → Wavefront (.obj)</i> marcando <i>Object Groups</i>.</li>
-          <li><b>Opción B:</b> marcá las costuras (<i>Edge → Mark Seam</i>), hacé <i>UV → Unwrap</i> y exportá con UV. Elegí "Por islas UV".</li>
-          <li>Cada pieza tiene que poder abrirse plana: si es una esfera o un tubo, agregale costuras o pinzas. El programa te avisa cuánto se deforma cada pieza.</li>
+          <li><b>Modelo:</b> armá el peluche con formas (se funden como plastilina; las que van «aparte», como las orejas, quedan como piezas sueltas), armá un maniquí con tus medidas o subí un .obj de Blender.</li>
+          <li><b>Costuras:</b> con <b>Trazar</b> tocás puntos y la costura sigue la superficie. Con <b>Cuchillo</b> trazás una línea recta en pantalla y corta la pieza de lado a lado: girá la vista para que el corte quede donde querés (por ejemplo, de frente para la costura del centro). Con simetría, lo que hacés de un lado se repite del otro.</li>
+          <li><b>Piezas:</b> cada zona encerrada por costuras es una pieza. La lista te avisa si alguna está cerrada (le falta una costura), es un tubo o se deforma mucho al aplanarse. Con <b>Quitar pieza</b> sacás lo que no va en el molde (en un maniquí: cabeza, brazos, piernas).</li>
+          <li><b>Moldes de ropa sobre el maniquí:</b> «Costuras de corpiño básico» corta el centro, los costados, los hombros, el escote, las sisas y la cintura. Con <b>holgura</b> el maniquí se infla para que la prenda no quede justa. Si el delantero se deforma, trazá una pinza: una costura abierta desde el costado hacia el busto.</li>
+          <li>Las costuras se guardan como posiciones en 3D: si después cambiás las formas o las medidas, se vuelven a calcular solas.</li>
+          <li>Aclaración: no hay simulación de tela. El molde es la superficie del modelo aplanada, así que conviene probar primero en una tela barata.</li>
         </ol>
       </details>
     </section>
@@ -159,6 +287,6 @@
   <footer>
     Hecho con Python (Pyodide), shapely, numpy y scipy. Código en este mismo repositorio.
   </footer>
-  <script type="module" src="app.js?v=0.2.0"></script>
+  <script type="module" src="app.js?v=0.4.0"></script>
 </body>
 </html>

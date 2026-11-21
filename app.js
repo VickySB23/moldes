@@ -1,12 +1,13 @@
 // Interfaz de la página: carga el paquete Python "moldes" en Pyodide y lo usa.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { iniciarEditor, prendasGuardadas } from "./editor.js?v=0.2.0";
+import { iniciarEditor, prendasGuardadas } from "./editor.js?v=0.4.0";
+import { iniciarTaller, hayModelo } from "./taller.js?v=0.4.0";
 
-const VERSION = "0.2.0";
+const VERSION = "0.4.0";
 const ARCHIVOS_PY = [
   "__init__.py", "pieza.py", "dibujo.py", "pdf.py", "salida.py",
-  "ropa.py", "aplanar.py", "peluche.py", "personal.py", "web.py",
+  "ropa.py", "aplanar.py", "peluche.py", "personal.py", "formas.py", "maniqui.py", "web.py",
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -18,8 +19,6 @@ const estado = (msg, tipo = "") => {
 
 let py = null;
 let api = null;
-let textoObj = null;
-let nombreObj = "peluche";
 let urlsDescarga = [];
 
 // ---------------------------------------------------------------- arranque
@@ -39,6 +38,7 @@ async function iniciar() {
     api = py.pyimport("moldes.web");
     armarFormularioRopa();
     await iniciarEditor(api, generarPersonal);
+    await iniciarTaller(api, ejecutar, estado);
     document.addEventListener("moldes:prendas-cambiaron", armarFormularioRopa);
     actualizarBotones();
     estado("Listo ✔", "ok");
@@ -55,7 +55,8 @@ document.querySelectorAll(".pestana").forEach((b) =>
     document.querySelectorAll(".panel").forEach((x) => x.classList.remove("activo"));
     b.classList.add("activa");
     $(b.dataset.panel).classList.add("activo");
-    document.body.classList.toggle("ancho", b.dataset.panel === "panel-personal");
+    document.body.classList.toggle("ancho", b.dataset.panel !== "panel-ropa");
+    window.dispatchEvent(new Event("resize"));
   })
 );
 
@@ -141,37 +142,7 @@ $("btn-ropa").addEventListener("click", () => {
     })), id);
 });
 
-// ---------------------------------------------------------------- peluche
-$("obj").addEventListener("change", async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  textoObj = await f.text();
-  nombreObj = f.name.replace(/\.obj$/i, "");
-  $("obj-nombre").textContent = `Modelo: ${f.name} (${(f.size / 1024).toFixed(0)} KB)`;
-  $("btn-peluche").disabled = !api;
-});
-
-$("btn-ejemplo").addEventListener("click", async () => {
-  const r = await fetch(`ejemplos/rana.obj?v=${VERSION}`);
-  textoObj = await r.text();
-  nombreObj = "rana";
-  $("obj-nombre").textContent = "Modelo: rana de ejemplo (18 piezas)";
-  $("eje").value = "y";
-  $("btn-peluche").disabled = !api;
-});
-
-$("btn-peluche").addEventListener("click", () => {
-  if (!textoObj) return;
-  ejecutar(() =>
-    api.generar_peluche(textoObj, JSON.stringify({
-      altura: parseFloat($("altura").value),
-      eje: $("eje").value,
-      modo: $("modo").value,
-      margen: parseFloat($("pel-margen").value),
-      hoja: $("pel-hoja").value,
-      titulo: "Peluche: " + nombreObj,
-    })), nombreObj);
-});
+// ---------------------------------------------------------------- peluche: ver taller.js
 
 // ---------------------------------------------------------------- mi prenda
 function generarPersonal(prenda, margen, hoja) {
@@ -182,12 +153,13 @@ function generarPersonal(prenda, margen, hoja) {
 // ---------------------------------------------------------------- común
 function actualizarBotones() {
   $("btn-ropa").disabled = !api;
-  $("btn-peluche").disabled = !(api && textoObj);
+  $("btn-peluche").disabled = !(api && hayModelo());
   $("btn-personal").disabled = !api;
 }
 
 async function ejecutar(fn, nombre) {
-  document.querySelectorAll("button.principal").forEach((b) => (b.disabled = true));
+  const activos = [...document.querySelectorAll("button.principal")].filter((b) => !b.disabled);
+  activos.forEach((b) => (b.disabled = true));
   estado("Generando…");
   await new Promise((r) => setTimeout(r, 30)); // deja que se pinte el mensaje
   try {
@@ -200,6 +172,7 @@ async function ejecutar(fn, nombre) {
     const msg = String(err.message || err).split("\n").filter(Boolean);
     estado("Error: " + msg[msg.length - 1], "error");
   } finally {
+    activos.forEach((b) => (b.disabled = false));
     actualizarBotones();
   }
 }

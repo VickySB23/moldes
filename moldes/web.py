@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import json
 
-from . import peluche, personal, ropa
+from . import formas, maniqui, peluche, personal, ropa
 from .salida import acomodar, generar_pdf, generar_svg
 
 
@@ -48,6 +48,7 @@ def generar_peluche(texto_obj: str, opciones_json: str) -> str:
         altura_cm=float(o.get("altura", 30)),
         eje=o.get("eje", "y"),
         modo=o.get("modo", "auto"),
+        nombre_base=o.get("nombre_base", ""),
         iteraciones=int(o.get("iteraciones", 15)),
     )
     if not piezas:
@@ -77,3 +78,21 @@ def generar_personal(prenda_json: str, opciones_json: str) -> str:
     informe = informe + [f"Margen de costura general: {margen:g} cm (línea punteada = costura)."]
     return _resultado(piezas, informe, prenda.get("nombre") or "Prenda personalizada", margen,
                       o.get("hoja", "A4"))
+
+
+# ------------------------------------------------------------ taller 3D (formas, maniquí, costuras)
+
+def esquema_taller() -> str:
+    return json.dumps({"formas": formas.esquema(), "maniqui": maniqui.esquema()})
+
+
+def mallar_formas(modelo_json: str) -> str:
+    return json.dumps(formas.mallar_json(modelo_json))
+
+
+def mallar_maniqui(datos_json: str) -> str:
+    return json.dumps(maniqui.mallar_json(datos_json))
+
+
+def analizar_piezas(texto_obj: str) -> str:
+    return json.dumps(peluche.analizar(texto_obj))

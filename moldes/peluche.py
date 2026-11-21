@@ -5,6 +5,8 @@ Cómo se definen las piezas (modo 'auto' elige solo):
   * 'materiales' -> cada material (usemtl) es una pieza.
   * 'uv'         -> cada isla UV es una pieza (en Blender: marcar costuras + Unwrap).
   * 'partes'     -> cada parte suelta (no conectada) es una pieza.
+  * 'editor'     -> piezas marcadas en la vista 3D de la página: cada grupo es una
+                    pieza y los cortes vienen como vértices UV distintos (no se sueldan).
 Dentro de cada pieza, las partes no conectadas se separan solas.
 """
 from __future__ import annotations
@@ -172,6 +174,8 @@ def molde_peluche(texto_obj: str, altura_cm: float = 30.0, eje: str = "y",
     tiene_uv = (Fvt >= 0).all() and len(m.VT) > 0
     grupos = sorted(set(m.grupo))
     materiales = sorted(set(m.material))
+    if modo == "auto" and "# moldes:editor" in texto_obj[:200] and tiene_uv:
+        modo = "editor"
     if modo == "auto":
         if len(grupos) > 1:
             modo = "grupos"
@@ -181,17 +185,17 @@ def molde_peluche(texto_obj: str, altura_cm: float = 30.0, eje: str = "y",
             modo = "uv"
         else:
             modo = "partes"
-    if modo == "uv" and not tiene_uv:
+    if modo in ("uv", "editor") and not tiene_uv:
         raise ValueError("El modelo no tiene coordenadas UV; usá otro modo.")
 
     # 1) segmentación
-    if modo == "grupos":
+    if modo in ("grupos", "editor"):
         etiquetas = m.grupo
     elif modo == "materiales":
         etiquetas = m.material
     else:
         etiquetas = ["pieza"] * len(Fv)
-    if modo == "uv":
+    if modo in ("uv", "editor"):
         claves_cara = [[(int(Fv[i, k]), int(Fvt[i, k])) for k in range(3)] for i in range(len(Fv))]
     else:
         claves_cara = [[int(soldado[Fv[i, k]]) for k in range(3)] for i in range(len(Fv))]
@@ -279,6 +283,8 @@ def molde_peluche(texto_obj: str, altura_cm: float = 30.0, eje: str = "y",
 
         exterior = [tuple(P2[i]) for i in lazos[0]]
         agujeros = [[tuple(P2[i]) for i in l] for l in lazos[1:]]
+        if modo == "editor":
+            exterior = _limpiar_contorno(exterior)
         pz = Pieza(nombre, exterior, agujeros=agujeros, cortar="Cortar 1", color=color,
                    texto_hilo="PELO / HILO")
         if media > 0:
@@ -294,7 +300,7 @@ def molde_peluche(texto_obj: str, altura_cm: float = 30.0, eje: str = "y",
     _letras_union(datos, avisos)
 
     # informe
-    informe = [f"Peluche de {altura_cm:g} cm de alto · {len(piezas)} piezas · modo de piezas: {modo}",
+    informe = [f"Molde de {altura_cm:.1f} cm de alto (piezas incluidas) · {len(piezas)} piezas · modo de piezas: {modo}",
                "Piezas vistas desde el DERECHO de la tela; la flecha indica el sentido del pelo "
                "(hacia abajo del muñeco).",
                "Las letras iguales se cosen entre sí, haciendo coincidir los piquetes."]
@@ -306,6 +312,22 @@ def molde_peluche(texto_obj: str, altura_cm: float = 30.0, eje: str = "y",
         "eje": eje.lower(),
     }
     return piezas, informe, vista
+
+
+def _limpiar_contorno(pts, r=0.35):
+    """Saca astillas y escalones finos del borde (piezas cortadas en la vista 3D)."""
+    from shapely.geometry import Polygon
+    try:
+        p = Polygon(pts)
+        if not p.is_valid:
+            p = p.buffer(0)
+        q = p.buffer(-r, join_style="round").buffer(r, join_style="round")
+        q = q.buffer(r * 0.5, join_style="round").buffer(-r * 0.5, join_style="round")
+        if q.geom_type != "Polygon" or q.is_empty or abs(q.area - p.area) > 0.04 * p.area:
+            return pts
+        return list(q.simplify(0.03).exterior.coords)[:-1]
+    except Exception:   # noqa: BLE001
+        return pts
 
 
 def _direccion_abajo(V, F, uv, abajo):
@@ -407,3 +429,60 @@ def _marcar_tramo(di, dj, tramo, letra):
                 continue
             x, y = d["P2"][v]
             d["pieza"].marcas.append(marca_en(d["pieza"], float(x), float(y), texto))
+
+
+def analizar(texto_obj: str, iteraciones: int = 4) -> list:
+    """Revisión rápida de las piezas (para la vista 3D): bordes y deformación al aplanar."""
+    m = leer_obj(texto_obj)
+    V = np.asarray(m.V, float)
+    Fv = np.asarray(m.caras_v, int)
+    Fvt = np.asarray(m.caras_vt, int)
+    con_uv = (Fvt >= 0).all() and len(m.VT) > 0
+    soldado = _soldar(V)
+    if con_uv:
+        claves_cara = [[(int(Fv[i, k]), int(Fvt[i, k])) for k in range(3)] for i in range(len(Fv))]
+    else:
+        claves_cara = [[int(soldado[Fv[i, k]]) for k in range(3)] for i in range(len(Fv))]
+    por_grupo = defaultdict(list)
+    for i, g in enumerate(m.grupo):
+        por_grupo[g].append(i)
+    salida = []
+    for g, idx in por_grupo.items():
+        comps = _componentes([Fv[i] for i in idx], [claves_cara[i] for i in idx])
+        res = {"nombre": g, "caras": len(idx), "partes": len(comps), "bordes": 0,
+               "media": None, "maxima": None, "invertidos": 0, "estado": "ok"}
+        peor = None
+        for c in comps:
+            caras = [idx[j] for j in c]
+            mapa, Vl, Fl = {}, [], []
+            for fi in caras:
+                tri = []
+                for k, key in enumerate(claves_cara[fi]):
+                    if key not in mapa:
+                        mapa[key] = len(Vl)
+                        Vl.append(V[Fv[fi, k]])
+                    tri.append(mapa[key])
+                Fl.append(tri)
+            Vl, Fl = np.asarray(Vl), np.asarray(Fl, int)
+            lazos = _lazos_borde(Fl)
+            res["bordes"] = max(res["bordes"], len(lazos))
+            if not lazos:
+                res["estado"] = "cerrada"
+                continue
+            try:
+                uv = aplanar(Vl, Fl, iteraciones)
+                media, maxima, inv = distorsion(Vl, Fl, uv)
+            except Exception:   # noqa: BLE001
+                res["estado"] = "error"
+                continue
+            if peor is None or media > peor[0]:
+                peor = (media, maxima, inv)
+        if peor:
+            res["media"], res["maxima"], res["invertidos"] = round(peor[0], 1), round(peor[1], 1), peor[2]
+        if res["estado"] == "ok":
+            if res["bordes"] > 1:
+                res["estado"] = "tubo"
+            elif peor and (peor[0] > 6 or peor[1] > 20 or peor[2]):
+                res["estado"] = "deforma"
+        salida.append(res)
+    return salida
